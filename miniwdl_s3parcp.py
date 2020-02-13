@@ -33,7 +33,7 @@ def main(uri):
 
     # write them to a temp file that'll delete automatically when done
     with tempfile.NamedTemporaryFile(
-        prefix="miniwdl_download_s3parcp_credentials_", delete=True, mode="w"
+        prefix="miniwdl_download_s3parcp_credentials_", delete=True, mode="w", dir="/mnt"
     ) as aws_credentials_file:
         print(aws_credentials, file=aws_credentials_file, flush=True)
         # make file group-readable so that miniwdl doesn't warn about potential incompatibility
@@ -60,7 +60,7 @@ task s3parcp {{
         mkdir __out
         cd __out
         # allocating one hardware thread to two concurrent part xfers
-        ../s3parcp -c ~{{cpu*2}} "~{{uri}}" .
+        s3parcp -c ~{{cpu*2}} "~{{uri}}" .
     >>>
 
     output {{
