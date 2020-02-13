@@ -5,7 +5,7 @@ and upload (delocalization) tasks for S3 URIs in WDL workflow I/O, using [s3parc
 
 ## Installation
 ```
-pip install miniwdl-s3parcp
+pip3 install miniwdl-s3parcp
 ```
 To check that the installation was successful, run `miniwdl --version`, which will list available plugins, including this one.
 
