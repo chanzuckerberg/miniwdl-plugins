@@ -43,20 +43,9 @@ release:
 	http --check-status --auth ${GH_AUTH} POST ${UPLOADS_API}/$$(http --auth ${GH_AUTH} ${RELEASES_API}/latest | jq .id)/assets \
 	    name==$$(basename dist/*.whl) label=="Python Wheel" < dist/*.whl
 	$(MAKE) release-pypi
-	$(MAKE) release-docs
 
 release-pypi:
 	python setup.py sdist bdist_wheel
 	twine upload dist/*.tar.gz dist/*.whl --sign --verbose
-
-release-docs:
-	$(MAKE) docs
-	-git branch -D gh-pages
-	git checkout -B gh-pages-stage
-	touch docs/html/.nojekyll
-	git add --force docs/html
-	git commit -m "Docs for ${TAG}"
-	git push --force origin $$(git subtree split --prefix docs/html --branch gh-pages):refs/heads/gh-pages
-	git checkout -
 
 .PHONY: release
