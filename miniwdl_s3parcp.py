@@ -45,34 +45,32 @@ def main(uri):
 
 
 # WDL task source code
-wdl = r"""
-task s3parcp {
-    input {
+wdl = f"""
+task s3parcp {{
+    input {{
         String uri
         File aws_credentials
 
         Int cpu = 4
-    }
+    }}
 
     command <<<
         set -euo pipefail
-        source "~{aws_credentials}"
-        # TODO: pre-built docker image for s3parcp
-        curl -LSs https://github.com/chanzuckerberg/s3parcp/releases/download/v0.0.14-alpha/s3parcp_0.0.14-alpha_Linux_x86_64.tar.gz | tar zx
+        source "~{{aws_credentials}}"
         mkdir __out
         cd __out
         # allocating one hardware thread to two concurrent part xfers
-        ../s3parcp -c ~{cpu*2} "~{uri}" .
+        ../s3parcp -c ~{{cpu*2}} "~{{uri}}" .
     >>>
 
-    output {
+    output {{
         File file = glob("__out/*")[0]
-    }
+    }}
 
-    runtime {
+    runtime {{
         cpu: cpu
-        memory: "~{cpu}G"
-        docker: "centos:8"
-    }
-}
+        memory: "~{{cpu}}G"
+        docker: "{os.environ.get("S3PARCP_DOCKER_IMAGE", "s3parcp")}"
+    }}
+}}
 """
