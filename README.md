@@ -1,7 +1,7 @@
 # miniwdl-s3parcp
 
 This Python package is a [MiniWDL](https://github.com/chanzuckerberg/miniwdl) plugin to handle S3 download (localization)
-and upload (delocalization) tasks for S3 URIs in WDL workflow I/O.
+and upload (delocalization) tasks for S3 URIs in WDL workflow I/O, using [s3parcp](https://github.com/chanzuckerberg/s3parcp).
 
 ## Installation
 ```
