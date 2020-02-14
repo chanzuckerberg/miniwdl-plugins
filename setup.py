@@ -3,7 +3,7 @@ from setuptools import setup
 from os import path
 
 this_directory = path.abspath(path.dirname(__file__))
-with open(path.join(path.dirname(__file__), 'README.md')) as f:
+with open(path.join(path.dirname(__file__), "README.md")) as f:
     long_description = f.read()
 
 setup(
@@ -17,7 +17,7 @@ setup(
     },
     description="miniwdl download plugin for s3:// using s3parcp",
     long_description=long_description,
-    long_description_content_type='text/markdown',
+    long_description_content_type="text/markdown",
     author="Mike Lin, Andrey Kislyuk",
     py_modules=["miniwdl_s3parcp"],
     python_requires=">=3.6",
