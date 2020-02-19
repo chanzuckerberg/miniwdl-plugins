@@ -13,7 +13,7 @@ import boto3
 
 
 @contextmanager
-def main(uri):
+def main(cfg, logger, uri):
     # get AWS credentials from boto3
     b3 = boto3.session.Session()
     b3creds = b3.get_credentials()
