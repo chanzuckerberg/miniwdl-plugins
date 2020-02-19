@@ -41,36 +41,41 @@ def main(cfg, logger, uri):
         os.chmod(aws_credentials_file.name, os.stat(aws_credentials_file.name).st_mode | 0o40)
 
         # yield WDL task and inputs
-        yield wdl, {"uri": uri, "aws_credentials": aws_credentials_file.name}
+        yield wdl, {
+            "uri": uri,
+            "aws_credentials": aws_credentials_file.name,
+            "docker": cfg["s3parcp"]["docker_image"],
+        }
 
 
 # WDL task source code
-wdl = f"""
-task s3parcp {{
-    input {{
+wdl = """
+task s3parcp {
+    input {
         String uri
         File aws_credentials
+        String docker
 
         Int cpu = 4
-    }}
+    }
 
     command <<<
         set -euo pipefail
-        source "~{{aws_credentials}}"
+        source "~{aws_credentials}"
         mkdir __out
         cd __out
         # allocating one hardware thread to two concurrent part xfers
-        s3parcp -c ~{{cpu*2}} "~{{uri}}" .
+        s3parcp -c ~{cpu*2} "~{uri}" .
     >>>
 
-    output {{
+    output {
         File file = glob("__out/*")[0]
-    }}
+    }
 
-    runtime {{
+    runtime {
         cpu: cpu
-        memory: "~{{cpu}}G"
-        docker: "{os.environ.get("S3PARCP_DOCKER_IMAGE", "s3parcp")}"
-    }}
-}}
+        memory: "~{cpu}G"
+        docker: docker
+    }
+}
 """
