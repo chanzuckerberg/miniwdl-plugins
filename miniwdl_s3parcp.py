@@ -1,19 +1,20 @@
 """
 miniwdl download plugin for s3:// URIs using s3parcp -- https://github.com/chanzuckerberg/s3parcp
+Requires s3parcp docker image tag supplied in miniwdl configuration, either via custom cfg file
+(section s3parcp, key docker_image) or environment variable MINIWDL__S3PARCP__DOCKER_IMAGE.
+Inherits AWS credentials from miniwdl's environment (as detected by boto3).
 
-Inherits AWS credentials from runner's environment (as detected by boto3)
-
-pip3 install --user .
+The plugin is installed using the "entry points" mechanism in setup.py. Furthermore, the miniwdl
+configuration [plugins] section has options to enable/disable installed plugins. Installed &
+enabled plugins can be observed using miniwdl --version and/or miniwdl run --debug.
 """
 
 import os
 import tempfile
-from contextlib import contextmanager
 import boto3
 
 
-@contextmanager
-def main(cfg, logger, uri):
+def main(cfg, logger, uri, **kwargs):
     # get AWS credentials from boto3
     b3 = boto3.session.Session()
     b3creds = b3.get_credentials()
@@ -31,21 +32,26 @@ def main(cfg, logger, uri):
     # format them as env vars to be sourced in the WDL task command
     aws_credentials = "\n".join(f"export {k}='{v}'" for (k, v) in aws_credentials.items())
 
-    # write them to a temp file that'll delete automatically when done
+    # write them to a temp file that'll self-destruct automatically
     with tempfile.NamedTemporaryFile(
         prefix="miniwdl_download_s3parcp_credentials_", delete=True, mode="w", dir="/mnt"
     ) as aws_credentials_file:
         print(aws_credentials, file=aws_credentials_file, flush=True)
-        # make file group-readable so that miniwdl doesn't warn about potential incompatibility
-        # with docker images that drop privileges to a non-root user
+        # make file group-readable to ensure it'll be usable if the docker image runs as non-root
         os.chmod(aws_credentials_file.name, os.stat(aws_credentials_file.name).st_mode | 0o40)
 
-        # yield WDL task and inputs
-        yield wdl, {
-            "uri": uri,
-            "aws_credentials": aws_credentials_file.name,
-            "docker": cfg["s3parcp"]["docker_image"],
+        # yield WDL task and inputs (followed by outputs as well)
+        recv = yield {
+            "task_wdl": wdl,
+            "inputs": {
+                "uri": uri,
+                "aws_credentials": aws_credentials_file.name,
+                "docker": cfg["s3parcp"]["docker_image"],
+            },
         }
+
+    # yield task outputs (unchanged)
+    yield recv
 
 
 # WDL task source code
