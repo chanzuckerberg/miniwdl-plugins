@@ -8,7 +8,7 @@ with open(path.join(path.dirname(__file__), "README.md")) as f:
 
 setup(
     name="miniwdl-s3parcp",
-    version="0.0.4",
+    version="0.0.5",
     url="https://github.com/chanzuckerberg/miniwdl-s3parcp",
     project_urls={
         "Documentation": "https://github.com/chanzuckerberg/miniwdl-s3parcp",
