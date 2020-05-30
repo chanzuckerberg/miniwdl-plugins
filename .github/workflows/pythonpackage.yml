@@ -13,6 +13,7 @@ jobs:
         which_plugin:
           - s3parcp_download
           - s3upload
+          - sfn-wdl
 
     steps:
     - uses: actions/checkout@v1
