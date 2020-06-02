@@ -133,20 +133,24 @@ def write_outputs_s3_json(logger, outputs, run_dir, s3prefix, namespace):
     s3cp(logger, fn, os.environ.get("WDL_OUTPUT_URI", os.path.join(s3prefix, "outputs.s3.json")))
 
 
+_s3parcp_lock = threading.Lock()
+
+
 def s3cp(logger, fn, s3uri):
-    cmd = ["s3parcp", fn, s3uri]
-    logger.debug(" ".join(cmd))
-    rslt = subprocess.run(cmd, stderr=subprocess.PIPE)
-    if rslt.returncode != 0:
-        logger.error(
-            _(
-                "failed uploading output file",
-                cmd=" ".join(cmd),
-                exit_status=rslt.returncode,
-                stderr=rslt.stderr.decode("utf-8"),
+    with _s3parcp_lock:
+        cmd = ["s3parcp", fn, s3uri]
+        logger.debug(" ".join(cmd))
+        rslt = subprocess.run(cmd, stderr=subprocess.PIPE)
+        if rslt.returncode != 0:
+            logger.error(
+                _(
+                    "failed uploading output file",
+                    cmd=" ".join(cmd),
+                    exit_status=rslt.returncode,
+                    stderr=rslt.stderr.decode("utf-8"),
+                )
             )
-        )
-        raise WDL.Error.RuntimeError("failed: " + " ".join(cmd))
+            raise WDL.Error.RuntimeError("failed: " + " ".join(cmd))
 
 
 def inode(link):
