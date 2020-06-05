@@ -8,8 +8,8 @@ the environment variable MINIWDL__S3_PROGRESSIVE_UPLOAD__URI_PREFIX to a S3 URI 
 to store the output files (e.g. "s3://my_bucket/workflow123_outputs"). The prefix should be set
 uniquely for each run, to prevent different runs from overwriting each others' outputs.
 
-Shells out to the AWS CLI, which must be pre-configured so that "aws s3 cp ..." into the specified
-bucket works (without explicit auth-related arguments).
+Shells out to s3parcp, for which the environment must be set up to authorize upload to the
+specified bucket (without explicit auth-related arguments).
 
 Deposits into each successful task/workflow run directory and S3 folder, an additional file
 outputs.s3.json which copies outputs.json replacing local file paths with the uploaded S3 URIs.
