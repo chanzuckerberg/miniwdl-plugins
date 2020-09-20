@@ -59,16 +59,16 @@ class AWSFargateContainer(TaskContainer):
                         cls.efs_id = partition.device.split(":")[0].split(".")[-5]
                     elif cls.efs_id not in partition.device:
                         msg = "Expected filesystem mount {} to match configured EFS ID {}"
-                        raise Interrupted(msg.format(partition, cls.efs_id))
+                        raise RuntimeError(msg.format(partition, cls.efs_id))
                     if cls.efs_mountpoint is None:
                         cls.efs_mountpoint = partition.mountpoint
                     elif cls.efs_mountpoint != partition.mountpoint:
                         msg = "Expected filesystem mount {} to match configured EFS mountpoint {}"
-                        raise Interrupted(msg.format(partition, cls.efs_mountpoint))
+                        raise RuntimeError(msg.format(partition, cls.efs_mountpoint))
                     return
         else:
             if cls.efs_id is None:
-                raise Interrupted(
+                raise RuntimeError(
                     'EFS filesystem config is missing. Mount the filesystem and run miniwdl in a subdirectory of the '
                     'mountpoint or set the filesystem ID with "export MINIWDL__AWS_FARGATE__EFS_ID=fs-12345678 '
                     'MINIWDL__AWS_FARGATE__EFS_MOUNTPOINT=/mnt/efs" or any other miniwdl config facility. '
@@ -106,15 +106,19 @@ class AWSFargateContainer(TaskContainer):
             image_tag += ":latest"
         logger.info("docker image tag %s", image_tag)
 
+        if os.stat(self.host_dir).st_dev != os.stat(self.efs_mountpoint).st_dev:
+            raise RuntimeError(f"miniwdl run directory is outside EFS mountpoint {self.efs_mountpoint}")
+
         for host_path, container_path in self.input_file_map.items():
-            host_work_path = os.path.join(self.host_dir, "work/_miniwdl_inputs/0", os.path.basename(host_path))
-            os.makedirs(os.path.dirname(host_work_path))
-            if os.stat(host_path).st_dev == os.stat(os.path.dirname(host_work_path)).st_dev:
-                logger.debug("Linking input %s as %s", host_path, host_work_path)
-                os.link(host_path, host_work_path)
+            real_host_path = os.path.realpath(host_path)
+            host_work_path = os.path.join(self.host_dir, "work/_miniwdl_inputs/0", os.path.basename(real_host_path))
+            os.makedirs(os.path.dirname(host_work_path), exist_ok=True)
+            if os.stat(real_host_path).st_dev == os.stat(os.path.dirname(host_work_path)).st_dev:
+                logger.debug("Linking input %s as %s", real_host_path, host_work_path)
+                os.link(real_host_path, host_work_path)
             else:
-                logger.debug("Copying input %s as %s", host_path, host_work_path)
-                shutil.copyfile(host_path, host_work_path)
+                logger.debug("Copying input %s as %s", real_host_path, host_work_path)
+                shutil.copyfile(real_host_path, host_work_path)
 
         chmod_R_plus(self.host_dir, file_bits=0o660, dir_bits=0o770)
 

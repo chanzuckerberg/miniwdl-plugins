@@ -16,7 +16,7 @@ setup(
     py_modules=["miniwdl_aws_fargate"],
     python_requires=">=3.6",
     setup_requires=["reentry"],
-    install_requires=["aegea >= 3.6.43"],
+    install_requires=["aegea >= 3.6.43", "psutil >= 5.4.2"],
     reentry_register=True,
     entry_points={
         "miniwdl.plugin.container_backend": ["aws_fargate = miniwdl_aws_fargate:AWSFargateContainer"]
