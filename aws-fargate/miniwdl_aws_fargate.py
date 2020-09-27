@@ -158,6 +158,7 @@ class AWSFargateContainer(TaskContainer):
             "--command", f"cd {wd} && bash ../command 2> >(tee -a ../stderr.txt 1>&2) > >(tee -a ../stdout.txt)",
             "--security-group", self.efs_security_group,
             "--volumes", f"{self.efs_id}:{os.path.relpath(self.host_dir, self.efs_mountpoint)}={self.container_dir}",
+            "--image", image_tag,
             "--fargate-memory", str(fargate_mem_value),
             "--fargate-cpu", str(fargate_cpu_value)
         ]
