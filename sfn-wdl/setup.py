@@ -8,7 +8,7 @@ with open(path.join(path.dirname(__file__), "README.md")) as f:
 
 setup(
     name="sfnwdl-miniwdl-plugin",
-    version="0.0.1",
+    version="0.0.2",
     description="miniwdl plugin for IDseq SFN-WDL customizations",
     long_description=long_description,
     long_description_content_type="text/markdown",

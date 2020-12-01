@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import WDL
 from WDL._util import StructuredLogMessage as _
 
@@ -13,6 +14,8 @@ PASSTHROUGH_ENV_VARS = (
 
 
 def task(cfg, logger, run_id, run_dir, task, **recv):
+    t_0 = time.time()
+
     # do nothing with inputs
     recv = yield recv
 
@@ -54,6 +57,16 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
         + recv["command"]
     )
     recv = yield recv
+
+    t_elapsed = time.time() - t_0
+    logger.notice(
+        _(
+            "SFN-WDL task done",
+            run_id=run_id[-1],
+            task_name=task.name,
+            elapsed_seconds=round(t_elapsed, 3),
+        )
+    )
 
     # do nothing with outputs
     yield recv
