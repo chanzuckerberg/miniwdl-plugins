@@ -49,10 +49,12 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
     }
     # inject command to log `aws sts get-caller-identity` to confirm AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
     # is passed through & effective
-    recv["command"] = (
-        """aws sts get-caller-identity | jq -c '. + {message: "aws sts get-caller-identity"}' 1>&2\n\n"""
-        + recv["command"]
-    )
+    if not run_id[-1].startswith("download-"):
+        recv["command"] = (
+            """aws sts get-caller-identity | jq -c '. + {message: "aws sts get-caller-identity"}' 1>&2\n\n"""
+            + recv["command"]
+        )
+
     recv = yield recv
 
     # do nothing with outputs
