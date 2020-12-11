@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import WDL
 from WDL._util import StructuredLogMessage as _
 
@@ -13,7 +14,13 @@ PASSTHROUGH_ENV_VARS = (
 
 
 def task(cfg, logger, run_id, run_dir, task, **recv):
-    # do nothing with inputs
+    t_0 = time.time()
+
+    # First yield point -- through which we'll get the task inputs. Also, the 'task' object is a
+    # WDL.Task through which we have access to the full AST of the task source code.
+    #   https://miniwdl.readthedocs.io/en/latest/WDL.html#WDL.Tree.Task
+    # pending proper documentation for this interface, see the detailed comments in this example:
+    #   https://github.com/chanzuckerberg/miniwdl/blob/main/examples/plugin_task_omnibus/miniwdl_task_omnibus_example.py
     recv = yield recv
 
     # provide a callback for stderr log messages that attempts to parse them as JSON and pass them
@@ -56,6 +63,18 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
         )
 
     recv = yield recv
+
+    # After task completion -- logging elapsed time in structured form, to be picked up by
+    # CloudWatch Logs. We also have access to the task outputs in recv.
+    t_elapsed = time.time() - t_0
+    logger.notice(
+        _(
+            "SFN-WDL task done",
+            run_id=run_id[-1],
+            task_name=task.name,
+            elapsed_seconds=round(t_elapsed, 3),
+        )
+    )
 
     # do nothing with outputs
     yield recv
