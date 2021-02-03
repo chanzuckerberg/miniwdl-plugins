@@ -19,6 +19,10 @@ setup(
     install_requires=["boto3"],
     reentry_register=True,
     entry_points={
+        # NOTE: the step status JSON function of this plugin has to run after the s3upload plugin
+        # (so that the uploads really are complete once sets the status to say so). miniwdl runs
+        # the plugins in alphabetical order, so "sfnwdl_miniwdl_plugin_task" has to follow the
+        # corresponding upload plugin's name(s).
         "miniwdl.plugin.task": ["sfnwdl_miniwdl_plugin_task = sfnwdl_miniwdl_plugin:task"]
     },
 )
