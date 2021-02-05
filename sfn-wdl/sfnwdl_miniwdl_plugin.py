@@ -173,7 +173,7 @@ def update_status_json(logger, task, run_ids, s3_wd_uri, entries):
 
             # Upload it
             with tempfile.NamedTemporaryFile() as outfile:
-                outfile.write(json.dumps(_status_json))
+                outfile.write(json.dumps(_status_json).encode())
                 outfile.flush()
                 cmd = [
                     "aws",
