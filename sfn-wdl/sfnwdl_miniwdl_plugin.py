@@ -186,7 +186,7 @@ def update_status_json(logger, task, run_ids, s3_wd_uri, entries):
                     _("update_status_json", step_name=step_name, status=status, cmd=" ".join(cmd))
                 )
                 try:
-                    subprocess.run(cmd, capture_output=True, check=True)
+                    subprocess.run(cmd, stderr=subprocess.PIPE, check=True)
                 except subprocess.CalledProcessError as cpe:
                     logger.error(
                         _(
