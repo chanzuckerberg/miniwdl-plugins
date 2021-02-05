@@ -19,12 +19,14 @@ PASSTHROUGH_ENV_VARS = (
 def task(cfg, logger, run_id, run_dir, task, **recv):
     t_0 = time.time()
 
-    if "s3_wd_uri" in recv["inputs"]:
+    s3_wd_uri = recv["inputs"].get("s3_wd_uri", None)
+    if s3_wd_uri:
+        s3_wd_uri = s3_wd_uri.value
         update_status_json(
             logger,
             task,
             run_id,
-            recv["inputs"]["s3_wd_uri"].value,
+            s3_wd_uri,
             {"status": "running", "start_time": time.time()},
         )
 
@@ -91,20 +93,8 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
                 elapsed_seconds=round(t_elapsed, 3),
             )
         )
-
-        if "s3_wd_uri" in recv["inputs"]:
-            update_status_json(
-                logger,
-                task,
-                run_id,
-                recv["inputs"]["s3_wd_uri"].value,
-                {"status": "uploaded", "end_time": time.time()},
-            )
-
-        # do nothing with outputs
-        yield recv
     except Exception as exn:
-        if "s3_wd_uri" in recv["inputs"]:
+        if s3_wd_uri:
             # read the error message to determine status user_errored or pipeline_errored
             status = "pipeline_errored"
             msg = str(exn)
@@ -116,10 +106,22 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
                 logger,
                 task,
                 run_id,
-                recv["inputs"]["s3_wd_uri"].value,
+                s3_wd_uri,
                 {"status": status, "error": msg, "end_time": time.time()},
             )
         raise
+
+    if s3_wd_uri:
+        update_status_json(
+            logger,
+            task,
+            run_id,
+            s3_wd_uri,
+            {"status": "uploaded", "end_time": time.time()},
+        )
+
+    # do nothing with outputs
+    yield recv
 
 
 _status_json = {}
