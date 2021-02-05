@@ -65,7 +65,7 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
                 # upload to S3
                 abs_fn = os.path.join(dn, fn)
                 # s3uri = os.path.join(s3prefix, *run_id[1:], dn[(len(links_dir) + 1) :], fn)
-                s3uri = os.path.join(s3prefix, os.path.basename(fn))
+                s3uri = os.path.join(s3prefix, os.path.relpath(abs_fn, links_dir))
                 s3cp(logger, abs_fn, s3uri)
                 # record in _uploaded_files (keyed by inode, so that it can be found from any
                 # symlink or hardlink)
