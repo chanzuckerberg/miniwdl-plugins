@@ -20,7 +20,7 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
     t_0 = time.time()
 
     s3_wd_uri = recv["inputs"].get("s3_wd_uri", None)
-    if s3_wd_uri:
+    if s3_wd_uri and s3_wd_uri.value:
         s3_wd_uri = s3_wd_uri.value
         update_status_json(
             logger,
@@ -172,7 +172,6 @@ def update_status_json(logger, task, run_ids, s3_wd_uri, entries):
                 status[k] = v
 
             # Upload it
-            logger.debug(_("update_status_json", step_name=step_name, status=status))
             with tempfile.NamedTemporaryFile() as outfile:
                 outfile.write(json.dumps(_status_json))
                 outfile.flush()
@@ -181,8 +180,11 @@ def update_status_json(logger, task, run_ids, s3_wd_uri, entries):
                     "s3",
                     "cp",
                     outfile.name,
-                    os.path.join(s3_wd_uri, f"{workflow_name}_status.json"),
+                    os.path.join(s3_wd_uri, f"{workflow_name}_status_NEW.json"),
                 ]
+                logger.verbose(
+                    _("update_status_json", step_name=step_name, status=status, cmd=" ".join(cmd))
+                )
                 try:
                     subprocess.run(cmd, capture_output=True, check=True)
                 except subprocess.CalledProcessError as cpe:
