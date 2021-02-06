@@ -112,13 +112,15 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
         raise
 
     if s3_wd_uri:
-        update_status_json(
-            logger,
-            task,
-            run_id,
-            s3_wd_uri,
-            {"status": "uploaded", "end_time": time.time()},
-        )
+        status = {
+            "status": "uploaded",
+            "end_time": time.time(),
+        }
+        if "step_description_md" in recv["outputs"]:
+            # idseq_dag steps may dynamically generate their description to reflect different
+            # behaviors based on the input. The WDL tasks output this as a String value.
+            status["description"] = recv["outputs"]["step_description_md"].value
+        update_status_json(logger, task, run_id, s3_wd_uri, status)
 
     # do nothing with outputs
     yield recv
@@ -163,8 +165,6 @@ def update_status_json(logger, task, run_ids, s3_wd_uri, entries):
         with _status_json_lock:
             status = _status_json.setdefault(step_name, {})
 
-            if "description" in task.meta:
-                status["description"] = task["description"]
             status["resources"] = {
                 "IDseq Docs": "https://github.com/chanzuckerberg/idseq-workflows"
             }
