@@ -164,10 +164,6 @@ def update_status_json(logger, task, run_ids, s3_wd_uri, entries):
         # Update _status_json which is accumulating over the course of workflow execution.
         with _status_json_lock:
             status = _status_json.setdefault(step_name, {})
-
-            status["resources"] = {
-                "IDseq Docs": "https://github.com/chanzuckerberg/idseq-workflows"
-            }
             for k, v in entries.items():
                 status[k] = v
 
