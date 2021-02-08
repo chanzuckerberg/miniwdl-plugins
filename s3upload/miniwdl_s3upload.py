@@ -48,6 +48,14 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
     # ignore command/runtime/container
     recv = yield recv
 
+    def upload_file(abs_fn, s3uri):
+        s3cp(logger, abs_fn, s3uri)
+        # record in _uploaded_files (keyed by inode, so that it can be found from any
+        # symlink or hardlink)
+        with _uploaded_files_lock:
+            _uploaded_files[inode(abs_fn)] = s3uri
+        logger.info(_("task output uploaded", file=abs_fn, uri=s3uri))
+
     if not cfg.has_option("s3_progressive_upload", "uri_prefix"):
         logger.debug("skipping because MINIWDL__S3_PROGRESSIVE_UPLOAD__URI_PREFIX is unset")
     elif not run_id[-1].startswith("download-"):
@@ -59,19 +67,31 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
             raise ex
 
         links_dir = os.path.join(run_dir, "out")
-        for (dn, subdirs, files) in os.walk(links_dir, onerror=_raise):
-            assert dn == links_dir or dn.startswith(links_dir + "/")
-            for fn in files:
-                # upload to S3
-                abs_fn = os.path.join(dn, fn)
-                # s3uri = os.path.join(s3prefix, *run_id[1:], dn[(len(links_dir) + 1) :], fn)
-                s3uri = os.path.join(s3prefix, os.path.relpath(abs_fn, links_dir))
-                s3cp(logger, abs_fn, s3uri)
-                # record in _uploaded_files (keyed by inode, so that it can be found from any
-                # symlink or hardlink)
-                with _uploaded_files_lock:
-                    _uploaded_files[inode(abs_fn)] = s3uri
-                logger.info(_("task output uploaded", file=abs_fn, uri=s3uri))
+        for output in os.listdir(links_dir):
+            abs_output = os.path.join(links_dir, output)
+            assert os.path.isdir(abs_output)
+            output_contents = [os.path.join(abs_output, fn) for fn in os.listdir(abs_output)]
+            assert output_contents
+            if len(output_contents) == 1 and os.path.isdir(output_contents[0]):
+                for (dn, subdirs, files) in os.walk(output_contents[0], onerror=_raise):
+                    assert dn == output_contents[0] or dn.startswith(output_contents[0] + "/"), dn
+                    for fn in files:
+                        abs_fn = os.path.join(dn, fn)
+                        s3uri = os.path.join(s3prefix, os.path.relpath(abs_fn, abs_output))
+                        upload_file(abs_fn, s3uri)
+            elif len(output_contents) == 1:
+                basename = os.path.basename(output_contents[0])
+                abs_fn = os.path.join(abs_output, basename)
+                s3uri = os.path.join(s3prefix, basename)
+                upload_file(abs_fn, s3uri)
+            else:
+                assert all(os.path.basename(abs_fn).isdigit() for abs_fn in output_contents), output_contents
+                for index_dir in output_contents:
+                    fns = os.listdir(index_dir)
+                    assert len(fns) == 1
+                    abs_fn = os.path.join(index_dir, fns[0])
+                    s3uri = os.path.join(s3prefix, fns[0])
+                    upload_file(abs_fn, s3uri)
 
         # write outputs_s3.json using _uploaded_files
         write_outputs_s3_json(
@@ -156,3 +176,4 @@ def s3cp(logger, fn, s3uri):
 def inode(link):
     st = os.stat(os.path.realpath(link))
     return (st.st_dev, st.st_ino)
+
