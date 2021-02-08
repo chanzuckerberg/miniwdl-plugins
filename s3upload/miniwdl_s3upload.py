@@ -72,7 +72,8 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
             assert os.path.isdir(abs_output)
             output_contents = [os.path.join(abs_output, fn) for fn in os.listdir(abs_output)]
             assert output_contents
-            if len(output_contents) == 1 and os.path.isdir(output_contents[0]):
+            if len(output_contents) == 1 and os.path.isdir(output_contents[0]) and os.path.islink(output_contents[0]):
+                # directory output
                 for (dn, subdirs, files) in os.walk(output_contents[0], onerror=_raise):
                     assert dn == output_contents[0] or dn.startswith(output_contents[0] + "/"), dn
                     for fn in files:
@@ -80,11 +81,13 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
                         s3uri = os.path.join(s3prefix, os.path.relpath(abs_fn, abs_output))
                         upload_file(abs_fn, s3uri)
             elif len(output_contents) == 1:
+                # file output
                 basename = os.path.basename(output_contents[0])
                 abs_fn = os.path.join(abs_output, basename)
                 s3uri = os.path.join(s3prefix, basename)
                 upload_file(abs_fn, s3uri)
             else:
+                # file array output
                 assert all(os.path.basename(abs_fn).isdigit() for abs_fn in output_contents), output_contents
                 for index_dir in output_contents:
                     fns = os.listdir(index_dir)
