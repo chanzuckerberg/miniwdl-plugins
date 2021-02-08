@@ -179,4 +179,3 @@ def s3cp(logger, fn, s3uri):
 def inode(link):
     st = os.stat(os.path.realpath(link))
     return (st.st_dev, st.st_ino)
-
