@@ -133,7 +133,7 @@ def workflow(cfg, logger, run_id, run_dir, workflow, **recv):
 def write_outputs_s3_json(logger, outputs, run_dir, s3prefix, namespace):
     # rewrite uploaded files to their S3 URIs
     def rewriter(fn):
-        s3_path = _uploaded_files.get(inode(fn)) or _uploaded_directories.get(fn)
+        s3_path = _uploaded_files.get(inode(fn.value)) or _uploaded_directories.get(fn.value)
         if s3_path:
             return s3_path
         logger.warning(
