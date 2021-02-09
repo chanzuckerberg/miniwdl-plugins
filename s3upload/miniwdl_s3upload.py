@@ -145,7 +145,7 @@ def write_outputs_s3_json(logger, outputs, run_dir, s3prefix, namespace):
         return fn
 
     with _uploaded_files_lock:
-        outputs_s3 = WDL.Value.rewrite_env_files(outputs, rewriter)
+        outputs_s3 = WDL.Value.rewrite_env_paths(outputs, rewriter)
 
     # get json dict of rewritten outputs
     outputs_s3_json = WDL.values_to_json(outputs_s3, namespace=namespace)
