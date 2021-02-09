@@ -75,7 +75,7 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
             assert output_contents
             if len(output_contents) == 1 and os.path.isdir(output_contents[0]) and os.path.islink(output_contents[0]):
                 # directory output
-                _uploaded_directories[output_contents[0]] = os.path.join(s3prefix, output) + "/"
+                _uploaded_directories[output] = os.path.join(s3prefix, output) + "/"
                 for (dn, subdirs, files) in os.walk(output_contents[0], onerror=_raise):
                     assert dn == output_contents[0] or dn.startswith(output_contents[0] + "/"), dn
                     for fn in files:
