@@ -33,6 +33,7 @@ import WDL
 from WDL._util import StructuredLogMessage as _
 
 _uploaded_files = {}
+_uploaded_directories = {}
 _uploaded_files_lock = threading.Lock()
 
 
@@ -74,6 +75,7 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
             assert output_contents
             if len(output_contents) == 1 and os.path.isdir(output_contents[0]) and os.path.islink(output_contents[0]):
                 # directory output
+                _uploaded_directories[output_contents[0]] = os.path.join(s3prefix, output)
                 for (dn, subdirs, files) in os.walk(output_contents[0], onerror=_raise):
                     assert dn == output_contents[0] or dn.startswith(output_contents[0] + "/"), dn
                     for fn in files:
@@ -131,16 +133,16 @@ def workflow(cfg, logger, run_id, run_dir, workflow, **recv):
 def write_outputs_s3_json(logger, outputs, run_dir, s3prefix, namespace):
     # rewrite uploaded files to their S3 URIs
     def rewriter(fn):
-        try:
-            return _uploaded_files[inode(fn)]
-        except Exception:
-            logger.warning(
-                _(
-                    "output file wasn't uploaded to S3; keeping local path in outputs.s3.json",
-                    file=fn,
-                )
+        s3_path = _uploaded_files.get(inode(fn)) or _uploaded_directories.get(fn)
+        if s3_path:
+            return s3_path
+        logger.warning(
+            _(
+                "output file wasn't uploaded to S3; keeping local path in outputs.s3.json",
+                file=fn,
             )
-            return fn
+        )
+        return fn
 
     with _uploaded_files_lock:
         outputs_s3 = WDL.Value.rewrite_env_files(outputs, rewriter)
