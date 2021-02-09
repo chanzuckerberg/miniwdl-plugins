@@ -176,7 +176,7 @@ def update_status_json(logger, task, run_ids, s3_wd_uri, entries):
                     "s3",
                     "cp",
                     outfile.name,
-                    os.path.join(s3_wd_uri, f"{workflow_name}_status.json"),
+                    os.path.join(s3_wd_uri, f"{workflow_name}_status2.json"),
                 ]
                 logger.verbose(
                     _("update_status_json", step_name=step_name, status=status, cmd=" ".join(cmd))
