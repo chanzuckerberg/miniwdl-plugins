@@ -132,17 +132,17 @@ def workflow(cfg, logger, run_id, run_dir, workflow, **recv):
 
 def write_outputs_s3_json(logger, outputs, run_dir, s3prefix, namespace):
     # rewrite uploaded files to their S3 URIs
-    def rewriter(fn):
-        s3_path = _uploaded_files.get(inode(fn.value)) or _uploaded_directories.get(fn.value)
+    def rewriter(obj):
+        s3_path = _uploaded_files.get(inode(obj.value)) or _uploaded_directories.get(obj.value)
         if s3_path:
             return s3_path
         logger.warning(
             _(
                 "output file wasn't uploaded to S3; keeping local path in outputs.s3.json",
-                file=fn,
+                path=obj.value,
             )
         )
-        return fn
+        return obj.value
 
     with _uploaded_files_lock:
         outputs_s3 = WDL.Value.rewrite_env_paths(outputs, rewriter)
