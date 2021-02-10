@@ -131,14 +131,14 @@ def workflow(cfg, logger, run_id, run_dir, workflow, **recv):
 
 def write_outputs_s3_json(logger, outputs, run_dir, s3prefix, namespace):
     # rewrite uploaded files to their S3 URIs
-    def rewriter(fn):
+    def rewriter(fd):
         try:
-            return _uploaded_files[inode(fn)]
+            return _uploaded_files[inode(fd.value)]
         except Exception:
             logger.warning(
                 _(
-                    "output file wasn't uploaded to S3; keeping local path in outputs.s3.json",
-                    file=fn,
+                    "output file or directory wasn't uploaded to S3; keeping local path in outputs.s3.json",
+                    path=fd.value,
                 )
             )
             return fn
