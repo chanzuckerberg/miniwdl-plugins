@@ -81,7 +81,7 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
                         abs_fn = os.path.join(dn, fn)
                         s3uri = os.path.join(s3prefix, os.path.relpath(abs_fn, abs_output))
                         upload_file(abs_fn, s3uri)
-            elif len(output_contents) == 1:
+            elif len(output_contents) == 1 and os.path.isfile(output_contents[0]):
                 # file output
                 basename = os.path.basename(output_contents[0])
                 abs_fn = os.path.join(abs_output, basename)
