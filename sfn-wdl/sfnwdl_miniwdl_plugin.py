@@ -1,4 +1,4 @@
-import os
+rousettes import os
 import json
 import time
 import threading
@@ -93,6 +93,17 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
                 elapsed_seconds=round(t_elapsed, 3),
             )
         )
+
+        if s3_wd_uri:
+            status = {
+                "status": "uploaded",
+                "end_time": time.time(),
+            }
+            if "step_description_md" in recv["outputs"]:
+                # idseq_dag steps may dynamically generate their description to reflect different
+                # behaviors based on the input. The WDL tasks output this as a String value.
+                status["description"] = recv["outputs"]["step_description_md"].value
+        update_status_json(logger, task, run_id, s3_wd_uri, status)
     except Exception as exn:
         if s3_wd_uri:
             # read the error message to determine status user_errored or pipeline_errored
@@ -112,17 +123,9 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
                 {"status": status, "error": msg, "end_time": time.time()},
             )
         raise
-
-    if s3_wd_uri:
-        status = {
-            "status": "uploaded",
-            "end_time": time.time(),
-        }
-        if "step_description_md" in recv["outputs"]:
-            # idseq_dag steps may dynamically generate their description to reflect different
-            # behaviors based on the input. The WDL tasks output this as a String value.
-            status["description"] = recv["outputs"]["step_description_md"].value
-        update_status_json(logger, task, run_id, s3_wd_uri, status)
+    finally:
+        if last_stderr_json:
+            stderr_logger.log(last_stderr_json["level"], json.dumps(last_stderr_json))
 
     # do nothing with outputs
     yield recv
