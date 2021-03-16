@@ -2,8 +2,6 @@ import os
 import json
 import time
 import threading
-import subprocess
-import tempfile
 import re
 
 import boto3
@@ -20,10 +18,12 @@ PASSTHROUGH_ENV_VARS = (
 
 s3 = boto3.resource("s3")
 
+
 def s3_object(uri):
     assert uri.startswith("s3://")
     bucket, key = uri.split("/", 3)[2:]
     return s3.Bucket(bucket).Object(key)
+
 
 def task(cfg, logger, run_id, run_dir, task, **recv):
     t_0 = time.time()
@@ -69,7 +69,7 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
                 stderr_logger.verbose(_(msg.strip(), **d))
                 last_stderr_json = d
                 parsed = True
-            except:
+            except Exception:
                 pass
         if not parsed:
             stderr_logger.verbose(line.rstrip())
@@ -105,20 +105,21 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
     except Exception as exn:
         if s3_wd_uri:
             # read the error message to determine status user_errored or pipeline_errored
-            status = "pipeline_errored"
+            status = dict(status="pipeline_errored")
             msg = str(exn)
             if last_stderr_json and "wdl_error_message" in last_stderr_json:
                 msg = last_stderr_json.get("cause", last_stderr_json["wdl_error_message"])
                 if last_stderr_json.get("error", None) == "InvalidInputFileError":
                     status = "user_errored"
                 if "step_description_md" in last_stderr_json:
-                    status["description"] = last_stderr_json["step_description_md"]
+                    status.update(description=last_stderr_json["step_description_md"])
+            status.update(error=msg, end_time=time.time())
             update_status_json(
                 logger,
                 task,
                 run_id,
                 s3_wd_uri,
-                {"status": status, "error": msg, "end_time": time.time()},
+                status
             )
         raise
 
@@ -180,7 +181,7 @@ def update_status_json(logger, task, run_ids, s3_wd_uri, entries):
 
             # Upload it
             logger.verbose(
-                _("update_status_json", step_name=step_name, status=status, cmd=" ".join(cmd))
+                _("update_status_json", step_name=step_name, status=status)
             )
             status_uri = os.path.join(s3_wd_uri, f"{workflow_name}_status2.json")
             s3_object(status_uri).put(Body=json.dumps(_status_json).encode())
