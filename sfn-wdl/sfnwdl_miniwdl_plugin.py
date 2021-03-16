@@ -5,6 +5,9 @@ import threading
 import subprocess
 import tempfile
 import re
+
+import boto3
+
 from WDL._util import StructuredLogMessage as _
 
 
@@ -15,6 +18,12 @@ PASSTHROUGH_ENV_VARS = (
     "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
 )
 
+s3 = boto3.resource("s3")
+
+def s3_object(uri):
+    assert uri.startswith("s3://")
+    bucket, key = uri.split("/", 3)[2:]
+    return s3.Bucket(bucket).Object(key)
 
 def task(cfg, logger, run_id, run_dir, task, **recv):
     t_0 = time.time()
@@ -170,30 +179,11 @@ def update_status_json(logger, task, run_ids, s3_wd_uri, entries):
                 status[k] = v
 
             # Upload it
-            with tempfile.NamedTemporaryFile() as outfile:
-                outfile.write(json.dumps(_status_json).encode())
-                outfile.flush()
-                cmd = [
-                    "aws",
-                    "s3",
-                    "cp",
-                    outfile.name,
-                    os.path.join(s3_wd_uri, f"{workflow_name}_status2.json"),
-                ]
-                logger.verbose(
-                    _("update_status_json", step_name=step_name, status=status, cmd=" ".join(cmd))
-                )
-                try:
-                    subprocess.run(cmd, stderr=subprocess.PIPE, check=True)
-                except subprocess.CalledProcessError as cpe:
-                    logger.error(
-                        _(
-                            "update_status_json aws s3 cp failed",
-                            exit_status=cpe.returncode,
-                            cmd=" ".join(cmd),
-                            stderr=cpe.stderr,
-                        )
-                    )
+            logger.verbose(
+                _("update_status_json", step_name=step_name, status=status, cmd=" ".join(cmd))
+            )
+            status_uri = os.path.join(s3_wd_uri, f"{workflow_name}_status2.json")
+            s3_object(status_uri).put(Body=json.dumps(_status_json).encode())
     except Exception as exn:
         logger.error(
             _("update_status_json failed", error=str(exn), s3_wd_uri=s3_wd_uri, run_ids=run_ids)
