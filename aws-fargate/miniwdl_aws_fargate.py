@@ -28,7 +28,7 @@ class AWSFargateContainer(TaskContainer):
         4096: dict(min=8192, max=30720)
     }
     _limits = {
-        "cpu": fargate_cpu_values[-1] / 1024,
+        "cpu": int(fargate_cpu_values[-1] / 1024),
         "mem_bytes": fargate_mem_values[-1] * 1024 * 1024
     }
     running_states = {"PROVISIONING", "PENDING", "ACTIVATING", "RUNNING"}
@@ -78,7 +78,7 @@ class AWSFargateContainer(TaskContainer):
             fs_url = f"{cls.efs_id}.efs.{ecs.clients.ecs.meta.region_name}.amazonaws.com:/"
             subprocess.run(["sudo", "mount", "-t", "nfs4", "-o",
                             "nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2",
-                            fs_url, cls.efs_mountpoint])
+                            fs_url, cls.efs_mountpoint])  # type: ignore
 
     @classmethod
     def detect_resource_limits(cls, cfg: config.Loader, logger: logging.Logger) -> Dict[str, int]:
@@ -89,9 +89,9 @@ class AWSFargateContainer(TaskContainer):
     ) -> Optional[int]:
         res = ecs.clients.ecs.describe_tasks(cluster=task_desc["clusterArn"], tasks=[task_desc["taskArn"]])
         task_desc = res["tasks"][0]
-        if task_desc["lastStatus"] not in self._observed_states:
+        if task_desc["lastStatus"] not in self._observed_states:  # type: ignore
             logger.info("Task %s %s", task_desc["taskArn"], task_desc["lastStatus"])
-            self._observed_states.add(task_desc["lastStatus"])
+            self._observed_states.add(task_desc["lastStatus"])  # type: ignore
         if task_desc["lastStatus"] == "STOPPED" and task_desc.get("stopCode") == "TaskFailedToStart":
             raise Interrupted(task_desc.get("stoppedReason"))
         return task_desc.get("containers", [{}])[0].get("exitCode")
@@ -154,10 +154,11 @@ class AWSFargateContainer(TaskContainer):
         for pipe_file in ["stdout.txt", "stderr.txt"]:
             pathlib.Path(os.path.join(self.host_dir, pipe_file)).touch()
 
+        efs_subdir = os.path.relpath(self.host_dir, self.efs_mountpoint)
         run_args = [
             "--command", f"cd {wd} && bash ../command 2> >(tee -a ../stderr.txt 1>&2) > >(tee -a ../stdout.txt)",
             "--security-group", self.efs_security_group,
-            "--volumes", f"{self.efs_id}:{os.path.relpath(self.host_dir, self.efs_mountpoint)}={self.container_dir}",
+            "--volumes", f"{self.efs_id}:{efs_subdir}={self.container_dir}",  # type: ignore
             "--image", image_tag,
             "--fargate-memory", str(fargate_mem_value),
             "--fargate-cpu", str(fargate_cpu_value)

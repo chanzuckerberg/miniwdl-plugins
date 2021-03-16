@@ -3,6 +3,7 @@ import json
 import time
 import threading
 import re
+from typing import Dict, Any
 
 import boto3
 
@@ -138,7 +139,7 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
     yield recv
 
 
-_status_json = {}
+_status_json: Dict[str, Any] = {}
 _status_json_lock = threading.Lock()
 
 

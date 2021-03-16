@@ -21,11 +21,14 @@ jobs:
       uses: actions/setup-python@v1
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install miniwdl
-      run: pip install miniwdl
+    - name: Install miniwdl and test dependencies
+      run: pip install miniwdl flake8 mypy
     - name: Install plugin
       run: pip install -e ${{ matrix.which_plugin }}
     - name: miniwdl --version
       run: miniwdl --version
+    - name: flake8
+      run: flake8
+    - name: mypy
+      run: mypy --ignore-missing-imports --exclude setup.py .
     # TODO: tests
-
