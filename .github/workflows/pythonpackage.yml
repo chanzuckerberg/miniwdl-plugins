@@ -28,7 +28,7 @@ jobs:
     - name: miniwdl --version
       run: miniwdl --version
     - name: flake8
-      run: flake8
+      run: flake8 ${{ matrix.which_plugin }}
     - name: mypy
-      run: mypy --ignore-missing-imports --exclude setup.py .
+      run: mypy --ignore-missing-imports ${{ matrix.which_plugin }}
     # TODO: tests
