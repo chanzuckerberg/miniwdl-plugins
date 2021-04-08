@@ -70,7 +70,7 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
         for output in os.listdir(links_dir):
             abs_output = os.path.join(links_dir, output)
             assert os.path.isdir(abs_output)
-            output_contents = [os.path.join(abs_output, fn) for fn in os.listdir(abs_output)]
+            output_contents = [os.path.join(abs_output, fn) for fn in os.listdir(abs_output) if not fn.startswith(".")]
             assert output_contents
             if len(output_contents) == 1 and os.path.isdir(output_contents[0]) and os.path.islink(output_contents[0]):
                 # directory output
@@ -91,7 +91,7 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
                 # file array output
                 assert all(os.path.basename(abs_fn).isdigit() for abs_fn in output_contents), output_contents
                 for index_dir in output_contents:
-                    fns = os.listdir(index_dir)
+                    fns = [fn for fn in os.listdir(index_dir) if not fn.startswith(".")]
                     assert len(fns) == 1
                     abs_fn = os.path.join(index_dir, fns[0])
                     s3uri = os.path.join(s3prefix, fns[0])
