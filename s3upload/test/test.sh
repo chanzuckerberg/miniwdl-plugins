@@ -23,3 +23,4 @@ pip3 install .
 miniwdl run test/test.wdl names=Alice names=Bob --dir "$(mktemp -d /tmp/miniwdl_s3upload_test.XXXXXXXX)/." $@
 
 aws s3 ls --recursive "$MINIWDL__S3_PROGRESSIVE_UPLOAD__URI_PREFIX"
+aws s3 cp "$MINIWDL__S3_PROGRESSIVE_UPLOAD__URI_PREFIX/outputs.s3.json" -
