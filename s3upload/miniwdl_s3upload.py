@@ -99,11 +99,6 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
                     s3uri = os.path.join(s3prefix, fns[0])
                     upload_file(abs_fn, s3uri)
 
-        # write outputs_s3.json using _uploaded_files
-        write_outputs_s3_json(
-            logger, recv["outputs"], run_dir, os.path.join(s3prefix, *run_id[1:]), task.name
-        )
-
     yield recv
 
 
