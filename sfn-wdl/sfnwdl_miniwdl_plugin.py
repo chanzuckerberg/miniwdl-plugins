@@ -15,6 +15,8 @@ PASSTHROUGH_ENV_VARS = (
     "AWS_DEFAULT_REGION",
     "DEPLOYMENT_ENVIRONMENT",
     "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
+)
+PASSTHROUGH_OPTIONAL_ENV_VARS = (
     "AUTH0_CONFIG_SECRET_NAME",
     "REMOTE_DEV_PREFIX",
 )
@@ -81,7 +83,7 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
 
     # pass through certain environment variables expected by idseq-dag
     recv["container"].create_service_kwargs = {
-        "env": [f"{var}={os.environ[var]}" for var in PASSTHROUGH_ENV_VARS],
+        "env": [f"{var}={os.environ[var]}" for var in PASSTHROUGH_ENV_VARS] + [f"{var}={os.environ[var]}" for var in PASSTHROUGH_OPTIONAL_ENV_VARS if os.getenv(var)],
     }
     # inject command to log `aws sts get-caller-identity` to confirm AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
     # is passed through & effective
