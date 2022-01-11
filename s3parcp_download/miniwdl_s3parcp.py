@@ -47,6 +47,7 @@ def main(cfg, logger, uri, **kwargs):
                 "uri": uri,
                 "aws_credentials": aws_credentials_file.name,
                 "docker": cfg["s3parcp"]["docker_image"],
+                "s3parcp_s3_url": os.getenv("S3PARCP_S3_URL", "")
             },
         }
 
@@ -61,6 +62,7 @@ task s3parcp {
         String uri
         File aws_credentials
         String docker
+        String s3parcp_s3_url
 
         Int cpu = 4
     }
@@ -70,6 +72,7 @@ task s3parcp {
         source "~{aws_credentials}"
         mkdir __out
         cd __out
+        export S3PARCP_S3_URL=~{s3parcp_s3_url}
         echo AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA $S3PARCP_S3_URL
         # allocating one hardware thread to two concurrent part xfers
         s3parcp -c ~{cpu*2} "~{uri}" .
