@@ -70,6 +70,7 @@ task s3parcp {
         source "~{aws_credentials}"
         mkdir __out
         cd __out
+        echo $S3PARCP_S3_URL
         # allocating one hardware thread to two concurrent part xfers
         s3parcp -c ~{cpu*2} "~{uri}" .
     >>>
