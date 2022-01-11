@@ -13,7 +13,6 @@ from WDL._util import StructuredLogMessage as _
 # environment variables to be passed through from miniwdl runner environment to task containers
 PASSTHROUGH_ENV_VARS = (
     "AWS_DEFAULT_REGION",
-    "DEPLOYMENT_ENVIRONMENT",
     "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
 )
 
