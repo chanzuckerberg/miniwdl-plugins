@@ -27,7 +27,7 @@ def main(cfg, logger, uri, **kwargs):
 
     # s3parcp (or perhaps underlying golang AWS lib) seems to require region set to match the
     # bucket's; in contrast to awscli which can conveniently 'figure it out'
-    aws_credentials["AWS_REGION"] = "us-east-1"
+    aws_credentials["AWS_REGION"] = b3.region_name if b3.region_name else "us-west-2"
 
     # format them as env vars to be sourced in the WDL task command
     aws_credentials = "\n".join(f"export {k}='{v}'" for (k, v) in aws_credentials.items())
@@ -47,6 +47,7 @@ def main(cfg, logger, uri, **kwargs):
                 "uri": uri,
                 "aws_credentials": aws_credentials_file.name,
                 "docker": cfg["s3parcp"]["docker_image"],
+                "s3parcp_s3_url": os.getenv("S3PARCP_S3_URL", "")
             },
         }
 
@@ -61,6 +62,7 @@ task s3parcp {
         String uri
         File aws_credentials
         String docker
+        String s3parcp_s3_url
 
         Int cpu = 4
     }
@@ -70,6 +72,8 @@ task s3parcp {
         source "~{aws_credentials}"
         mkdir __out
         cd __out
+        export S3PARCP_S3_URL=~{s3parcp_s3_url}
+        echo AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA $FOO 1>&2
         # allocating one hardware thread to two concurrent part xfers
         s3parcp -c ~{cpu*2} "~{uri}" .
     >>>
