@@ -71,6 +71,7 @@ task s3parcp {
         mkdir __out
         cd __out
         # allocating one hardware thread to two concurrent part xfers
+        echo AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA "~{uri}" 1>&2
         s3parcp -c ~{cpu*2} "~{uri}" .
     >>>
 
