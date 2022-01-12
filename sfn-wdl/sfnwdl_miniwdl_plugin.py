@@ -78,7 +78,7 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
 
     # pass through certain environment variables expected by idseq-dag
     recv["container"].create_service_kwargs = {
-        "env": [f"{var}={os.environ[var]}" for var in PASSTHROUGH_ENV_VARS],
+        "env": [f"{var}={os.environ[var]}" for var in PASSTHROUGH_ENV_VARS] + ["FOO=FOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO"],
     }
     # inject command to log `aws sts get-caller-identity` to confirm AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
     # is passed through & effective
