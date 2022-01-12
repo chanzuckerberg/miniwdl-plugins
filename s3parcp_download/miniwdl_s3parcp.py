@@ -73,7 +73,7 @@ task s3parcp {
         mkdir __out
         cd __out
         export S3PARCP_S3_URL=~{s3parcp_s3_url}
-        echo AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA $FOO
+        echo AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA $FOO 1>&2
         # allocating one hardware thread to two concurrent part xfers
         s3parcp -c ~{cpu*2} "~{uri}" .
     >>>
