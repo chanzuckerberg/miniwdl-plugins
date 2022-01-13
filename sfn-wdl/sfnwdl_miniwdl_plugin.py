@@ -87,6 +87,7 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
         network = urllib.parse.urlparse(os.environ["AWS_ENDPOINT_URL"]).hostname
         recv["container"].create_service_kwargs["networks"] = [network]
         recv["env"].append(f"AWS_ENDPOINT_URL={os.environ['AWS_ENDPOINT_URL']}")
+        recv["env"].append(f"S3PARCP_S3_URL={os.environ['AWS_ENDPOINT_URL']}")
 
     # inject command to log `aws sts get-caller-identity` to confirm AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
     # is passed through & effective
