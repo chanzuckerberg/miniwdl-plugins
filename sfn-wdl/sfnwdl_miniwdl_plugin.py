@@ -3,6 +3,7 @@ import json
 import time
 import threading
 import re
+import urllib.parse
 from typing import Dict, Any
 
 import boto3
@@ -79,8 +80,15 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
 
     # pass through certain environment variables expected by idseq-dag
     recv["container"].create_service_kwargs = {
-        "env": [f"{var}={os.environ[var]}" for var in PASSTHROUGH_ENV_VARS],
+        "env": [f"{var}={os.environ[var]}" for var in PASSTHROUGH_ENV_VARS if var in os.environ],
     }
+
+    if "AWS_ENDPOINT_URL" in os.environ:
+        network = urllib.parse.urlparse(os.environ["AWS_ENDPOINT_URL"]).hostname
+        recv["container"].create_service_kwargs["networks"] = [network]
+        recv["container"].create_service_kwargs["env"].append(f"AWS_ENDPOINT_URL={os.environ['AWS_ENDPOINT_URL']}")
+        recv["container"].create_service_kwargs["env"].append(f"S3PARCP_S3_URL={os.environ['AWS_ENDPOINT_URL']}")
+
     # inject command to log `aws sts get-caller-identity` to confirm AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
     # is passed through & effective
     if not run_id[-1].startswith("download-"):
