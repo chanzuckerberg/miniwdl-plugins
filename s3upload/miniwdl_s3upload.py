@@ -85,7 +85,7 @@ def inode(link: str):
     return (st.st_dev, st.st_ino)
 
 
-_uploaded_files = {}
+_uploaded_files: Dict[Tuple[int, int], str] = {}
 _cached_files: Dict[Tuple[int, int], Tuple[str, Env.Bindings[Value.Base]]] = {}
 _uploaded_files_lock = threading.Lock()
 
@@ -126,7 +126,7 @@ class CallCache(cache.CallCache):
         with _uploaded_files_lock:
             for o in outputs:
                 if isinstance(o, Value.File):
-                    _cached_files[inode(o.value)] = (key, outputs)
+                    _cached_files[inode(str(o.value))] = (key, outputs)
             cache_put(self._cfg, self._logger, key, outputs)
 
 
