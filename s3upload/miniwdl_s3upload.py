@@ -26,14 +26,108 @@ Limitations:
 """
 
 import os
+from os.path import relpath
+from os import path
 import subprocess
 import threading
 import json
+import logging
+from pathlib import Path
+from urllib.parse import urlparse
+from typing import Dict, Tuple
+
 import WDL
+from WDL import Env, Value, values_to_json
+from WDL.runtime import cache, config
 from WDL._util import StructuredLogMessage as _
 
+import boto3
+
+s3 = boto3.resource("s3", endpoint_url=os.getenv("AWS_ENDPOINT_URL"))
+s3_client = boto3.client("s3", endpoint_url=os.getenv("AWS_ENDPOINT_URL"))
+
+
+def s3_object(uri: str):
+    assert uri.startswith("s3://")
+    bucket, key = uri.split("/", 3)[2:]
+    return s3.Bucket(bucket).Object(key)
+
+
+def get_s3prefix(cfg: config.Loader) -> str:
+    s3prefix = cfg["s3_progressive_upload"]["uri_prefix"]
+    assert s3prefix.startswith("s3://"), "MINIWDL__S3_PROGRESSIVE_UPLOAD__URI_PREFIX invalid"
+    return s3prefix
+
+
+def s3uri(cfg: config.Loader, key: str) -> str:
+    return os.path.join(get_s3prefix(cfg), "cache", f"{key}.json")
+
+
+def flag_temporary(s3uri):
+    uri = urlparse(s3uri)
+    bucket, key = uri.hostname, uri.path[1:]
+    s3_client.put_object_tagging(
+        Bucket=bucket,
+        Key=key,
+        Tagging={
+            'TagSet': [
+                {
+                    'Key': 'swipe_temporary',
+                    'Value': 'true'
+                },
+            ]
+        },
+    )
+
+
+def inode(link: str):
+    st = os.stat(os.path.realpath(link))
+    return (st.st_dev, st.st_ino)
+
+
 _uploaded_files = {}
+_cached_files: Dict[Tuple[int, int], Tuple[str, Env.Bindings[Value.Base]]] = {}
 _uploaded_files_lock = threading.Lock()
+
+
+def cache_put(cfg: config.Loader, logger: logging.Logger, key: str, outputs: Env.Bindings[Value.Base]):
+    if not (cfg["call_cache"].get_bool("put") and
+            cfg["call_cache"]["backend"] == "s3_progressive_upload_call_cache_backend"):
+        return
+
+    json_values = values_to_json(outputs)
+    file_outputs: Dict[str, str] = {k: v for k, v in json_values.items() if path.exists(v)}
+    if all(inode(v) in _uploaded_files for v in file_outputs.values()):
+        for k, v in file_outputs.items():
+            json_values[k] = _uploaded_files[inode(v)]
+
+        uri = s3uri(cfg, key)
+        s3_object(uri).put(Body=json.dumps(json_values).encode())
+        flag_temporary(uri)
+        logger.info(_("call cache insert", cache_file=s3uri(cfg, key)))
+
+
+class CallCache(cache.CallCache):
+    def __init__(self, cfg: config.Loader, logger: logging.Logger):
+        super().__init__(cfg, logger)
+        uri = urlparse(cfg["s3_progressive_upload"]["uri_prefix"])
+        bucket, prefix = uri.hostname, uri.path
+        cache_prefix = os.path.join(prefix, "cache")[1:]
+        resp = s3_client.list_objects_v2(Bucket=bucket, Prefix=cache_prefix)
+        for obj in resp.get("Contents", []):
+            abs_fn = os.path.join(cfg["call_cache"]["dir"], relpath(obj["Key"], cache_prefix))
+            Path(abs_fn).parent.mkdir(parents=True, exist_ok=True)
+            s3_client.download_file(bucket, obj["Key"], abs_fn)
+
+    def put(self, key: str, outputs: Env.Bindings[Value.Base]) -> None:
+        if not self._cfg["call_cache"].get_bool("put"):
+            return
+
+        with _uploaded_files_lock:
+            for o in outputs:
+                if isinstance(o, Value.File):
+                    _cached_files[inode(o.value)] = (key, outputs)
+            cache_put(self._cfg, self._logger, key, outputs)
 
 
 def task(cfg, logger, run_id, run_dir, task, **recv):
@@ -48,57 +142,70 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
     # ignore command/runtime/container
     recv = yield recv
 
-    def upload_file(abs_fn, s3uri):
+    def upload_file(abs_fn, s3uri, intermediate):
+        if intermediate and \
+            not (cfg["call_cache"].get_bool("put") and
+                 cfg["call_cache"]["backend"] == "s3_progressive_upload_call_cache_backend"):
+            return
         s3cp(logger, abs_fn, s3uri)
         # record in _uploaded_files (keyed by inode, so that it can be found from any
         # symlink or hardlink)
         with _uploaded_files_lock:
             _uploaded_files[inode(abs_fn)] = s3uri
+            if inode(abs_fn) in _cached_files:
+                cache_put(cfg, logger, *_cached_files[inode(abs_fn)])
+        if intermediate:
+            flag_temporary(s3uri)
         logger.info(_("task output uploaded", file=abs_fn, uri=s3uri))
 
     if not cfg.has_option("s3_progressive_upload", "uri_prefix"):
         logger.debug("skipping because MINIWDL__S3_PROGRESSIVE_UPLOAD__URI_PREFIX is unset")
-    elif not run_id[-1].startswith("download-"):
-        s3prefix = cfg["s3_progressive_upload"]["uri_prefix"]
-        assert s3prefix.startswith("s3://"), "MINIWDL__S3_PROGRESSIVE_UPLOAD__URI_PREFIX invalid"
+        yield recv
+        return
 
-        # for each file under out
-        def _raise(ex):
-            raise ex
+    if run_id[-1].startswith("download-"):
+        yield recv
+        return
 
-        links_dir = os.path.join(run_dir, "out")
-        for output in os.listdir(links_dir):
-            abs_output = os.path.join(links_dir, output)
-            assert os.path.isdir(abs_output)
-            output_contents = [os.path.join(abs_output, fn) for fn in os.listdir(abs_output) if not fn.startswith(".")]
-            assert output_contents
-            if len(output_contents) == 1 and os.path.isdir(output_contents[0]) and os.path.islink(output_contents[0]):
-                # directory output
-                _uploaded_files[inode(output_contents[0])] = (
-                    os.path.join(s3prefix, os.path.basename(output_contents[0])) + "/"
-                )
-                for (dn, subdirs, files) in os.walk(output_contents[0], onerror=_raise):
-                    assert dn == output_contents[0] or dn.startswith(output_contents[0] + "/"), dn
-                    for fn in files:
-                        abs_fn = os.path.join(dn, fn)
-                        s3uri = os.path.join(s3prefix, os.path.relpath(abs_fn, abs_output))
-                        upload_file(abs_fn, s3uri)
-            elif len(output_contents) == 1 and os.path.isfile(output_contents[0]):
-                # file output
-                basename = os.path.basename(output_contents[0])
-                abs_fn = os.path.join(abs_output, basename)
-                s3uri = os.path.join(s3prefix, basename)
-                upload_file(abs_fn, s3uri)
-            else:
-                # file array output
-                assert all(os.path.basename(abs_fn).isdigit() for abs_fn in output_contents), output_contents
-                for index_dir in output_contents:
-                    fns = [fn for fn in os.listdir(index_dir) if not fn.startswith(".")]
-                    assert len(fns) == 1
-                    abs_fn = os.path.join(index_dir, fns[0])
-                    s3uri = os.path.join(s3prefix, fns[0])
-                    upload_file(abs_fn, s3uri)
+    s3prefix = cfg["s3_progressive_upload"]["uri_prefix"]
+    assert s3prefix.startswith("s3://"), "MINIWDL__S3_PROGRESSIVE_UPLOAD__URI_PREFIX invalid"
 
+    # for each file under out
+    def _raise(ex):
+        raise ex
+
+    links_dir = os.path.join(run_dir, "out")
+    for output in os.listdir(links_dir):
+        abs_output = os.path.join(links_dir, output)
+        assert os.path.isdir(abs_output)
+        output_contents = [os.path.join(abs_output, fn) for fn in os.listdir(abs_output) if not fn.startswith(".")]
+        assert output_contents
+        if len(output_contents) == 1 and os.path.isdir(output_contents[0]):
+            # directory output
+            _uploaded_files[inode(output_contents[0])] = (
+                os.path.join(s3prefix, os.path.basename(output_contents[0])) + "/"
+            )
+            for (dn, subdirs, files) in os.walk(output_contents[0], onerror=_raise):
+                assert dn == output_contents[0] or dn.startswith(output_contents[0] + "/"), dn
+                for fn in files:
+                    abs_fn = os.path.join(dn, fn)
+                    s3uri = os.path.join(s3prefix, os.path.relpath(abs_fn, abs_output))
+                    upload_file(abs_fn, s3uri, intermediate=not os.path.islink(output_contents[0]))
+        elif len(output_contents) == 1 and os.path.isfile(output_contents[0]):
+            # file output
+            basename = os.path.basename(output_contents[0])
+            abs_fn = os.path.join(abs_output, basename)
+            s3uri = os.path.join(s3prefix, basename)
+            upload_file(abs_fn, s3uri, intermediate=not os.path.islink(output_contents[0]))
+        else:
+            # file array output
+            assert all(os.path.basename(abs_fn).isdigit() for abs_fn in output_contents), output_contents
+            for index_dir in output_contents:
+                fns = [fn for fn in os.listdir(index_dir) if not fn.startswith(".")]
+                assert len(fns) == 1
+                abs_fn = os.path.join(index_dir, fns[0])
+                s3uri = os.path.join(s3prefix, fns[0])
+                upload_file(abs_fn, s3uri, intermediate=not os.path.islink(output_contents[0]))
     yield recv
 
 
@@ -172,8 +279,3 @@ def s3cp(logger, fn, s3uri):
                 )
             )
             raise WDL.Error.RuntimeError("failed: " + " ".join(cmd))
-
-
-def inode(link):
-    st = os.stat(os.path.realpath(link))
-    return (st.st_dev, st.st_ino)
