@@ -27,7 +27,6 @@ Limitations:
 
 import os
 from os.path import relpath
-from os import path
 import subprocess
 import threading
 import json
@@ -96,14 +95,13 @@ def cache_put(cfg: config.Loader, logger: logging.Logger, key: str, outputs: Env
         return
 
     missing = False
+
     def cache(v: Union[Value.File, Value.Directory]) -> str:
         nonlocal missing
         missing = missing or inode(str(v.value)) not in _uploaded_files
         if missing:
             return ""
-        return  _uploaded_files[inode(str(v.value))]
-
-
+        return _uploaded_files[inode(str(v.value))]
 
     remapped_outputs = Value.rewrite_env_paths(outputs, cache)
     if not missing:
