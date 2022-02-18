@@ -26,14 +26,13 @@ Limitations:
 """
 
 import os
-from os.path import relpath
 import subprocess
 import threading
 import json
 import logging
 from pathlib import Path
 from urllib.parse import urlparse
-from typing import Dict, Tuple, Union
+from typing import Dict, Optional, Tuple, Type, Union
 
 import WDL
 from WDL import Env, Value, values_to_json
@@ -112,16 +111,17 @@ def cache_put(cfg: config.Loader, logger: logging.Logger, key: str, outputs: Env
 
 
 class CallCache(cache.CallCache):
-    def __init__(self, cfg: config.Loader, logger: logging.Logger):
-        super().__init__(cfg, logger)
-        uri = urlparse(cfg["s3_progressive_upload"]["uri_prefix"])
+    def get(
+        self, key: str, inputs: Env.Bindings[Value.Base], output_types: Env.Bindings[Type.Base]
+    ) -> Optional[Env.Bindings[Value.Base]]:
+        uri = urlparse(self._cfg["s3_progressive_upload"]["uri_prefix"])
         bucket, prefix = uri.hostname, uri.path
-        cache_prefix = os.path.join(prefix, "cache")[1:]
-        resp = s3_client.list_objects_v2(Bucket=bucket, Prefix=cache_prefix)
-        for obj in resp.get("Contents", []):
-            abs_fn = os.path.join(cfg["call_cache"]["dir"], relpath(obj["Key"], cache_prefix))
-            Path(abs_fn).parent.mkdir(parents=True, exist_ok=True)
-            s3_client.download_file(bucket, obj["Key"], abs_fn)
+
+        key = os.path.join(prefix, "cache", f"{key}.json")[1:]
+        abs_fn = os.path.join(self._cfg["call_cache"]["dir"], f"{key}.json")
+        Path(abs_fn).parent.mkdir(parents=True, exist_ok=True)
+        s3_client.download_file(bucket, key, abs_fn)
+        return super().get(key, inputs, output_types)
 
     def put(self, key: str, outputs: Env.Bindings[Value.Base]) -> None:
         if not self._cfg["call_cache"].get_bool("put"):
