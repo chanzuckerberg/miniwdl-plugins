@@ -34,7 +34,7 @@ import json
 import logging
 from pathlib import Path
 from urllib.parse import urlparse
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union
 
 import WDL
 from WDL import Env, Value, values_to_json
@@ -95,14 +95,20 @@ def cache_put(cfg: config.Loader, logger: logging.Logger, key: str, outputs: Env
             cfg["call_cache"]["backend"] == "s3_progressive_upload_call_cache_backend"):
         return
 
-    json_values = values_to_json(outputs)
-    file_outputs: Dict[str, str] = {k: v for k, v in json_values.items() if path.exists(v)}
-    if all(inode(v) in _uploaded_files for v in file_outputs.values()):
-        for k, v in file_outputs.items():
-            json_values[k] = _uploaded_files[inode(v)]
+    missing = False
+    def cache(v: Union[Value.File, Value.Directory]) -> str:
+        nonlocal missing
+        missing = missing or inode(str(v.value)) not in _uploaded_files
+        if missing:
+            return ""
+        return  _uploaded_files[inode(str(v.value))]
 
+
+
+    remapped_outputs = Value.rewrite_env_paths(outputs, cache)
+    if not missing:
         uri = s3uri(cfg, key)
-        s3_object(uri).put(Body=json.dumps(json_values).encode())
+        s3_object(uri).put(Body=json.dumps(values_to_json(remapped_outputs)).encode())
         flag_temporary(uri)
         logger.info(_("call cache insert", cache_file=s3uri(cfg, key)))
 
@@ -123,10 +129,12 @@ class CallCache(cache.CallCache):
         if not self._cfg["call_cache"].get_bool("put"):
             return
 
+        def cache(v: Union[Value.File, Value.Directory]) -> str:
+            _cached_files[inode(v.value)] = (key, outputs)
+            return ""
+
         with _uploaded_files_lock:
-            for o in outputs:
-                if isinstance(o, Value.File):
-                    _cached_files[inode(str(o.value))] = (key, outputs)
+            Value.rewrite_env_paths(outputs, cache)
             cache_put(self._cfg, self._logger, key, outputs)
 
 
@@ -142,11 +150,7 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
     # ignore command/runtime/container
     recv = yield recv
 
-    def upload_file(abs_fn, s3uri, intermediate):
-        if intermediate and \
-            not (cfg["call_cache"].get_bool("put") and
-                 cfg["call_cache"]["backend"] == "s3_progressive_upload_call_cache_backend"):
-            return
+    def upload_file(abs_fn, s3uri):
         s3cp(logger, abs_fn, s3uri)
         # record in _uploaded_files (keyed by inode, so that it can be found from any
         # symlink or hardlink)
@@ -154,8 +158,6 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
             _uploaded_files[inode(abs_fn)] = s3uri
             if inode(abs_fn) in _cached_files:
                 cache_put(cfg, logger, *_cached_files[inode(abs_fn)])
-        if intermediate:
-            flag_temporary(s3uri)
         logger.info(_("task output uploaded", file=abs_fn, uri=s3uri))
 
     if not cfg.has_option("s3_progressive_upload", "uri_prefix"):
@@ -180,7 +182,7 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
         assert os.path.isdir(abs_output)
         output_contents = [os.path.join(abs_output, fn) for fn in os.listdir(abs_output) if not fn.startswith(".")]
         assert output_contents
-        if len(output_contents) == 1 and os.path.isdir(output_contents[0]):
+        if len(output_contents) == 1 and os.path.isdir(output_contents[0]) and os.path.islink(output_contents[0]):
             # directory output
             _uploaded_files[inode(output_contents[0])] = (
                 os.path.join(s3prefix, os.path.basename(output_contents[0])) + "/"
@@ -190,13 +192,13 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
                 for fn in files:
                     abs_fn = os.path.join(dn, fn)
                     s3uri = os.path.join(s3prefix, os.path.relpath(abs_fn, abs_output))
-                    upload_file(abs_fn, s3uri, intermediate=not os.path.islink(output_contents[0]))
+                    upload_file(abs_fn, s3uri)
         elif len(output_contents) == 1 and os.path.isfile(output_contents[0]):
             # file output
             basename = os.path.basename(output_contents[0])
             abs_fn = os.path.join(abs_output, basename)
             s3uri = os.path.join(s3prefix, basename)
-            upload_file(abs_fn, s3uri, intermediate=not os.path.islink(output_contents[0]))
+            upload_file(abs_fn, s3uri)
         else:
             # file array output
             assert all(os.path.basename(abs_fn).isdigit() for abs_fn in output_contents), output_contents
@@ -205,7 +207,7 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
                 assert len(fns) == 1
                 abs_fn = os.path.join(index_dir, fns[0])
                 s3uri = os.path.join(s3prefix, fns[0])
-                upload_file(abs_fn, s3uri, intermediate=not os.path.islink(output_contents[0]))
+                upload_file(abs_fn, s3uri)
     yield recv
 
 
