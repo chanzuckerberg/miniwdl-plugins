@@ -32,10 +32,11 @@ import json
 import logging
 from pathlib import Path
 from urllib.parse import urlparse
-from typing import Dict, Optional, Tuple, Type, Union
+from typing import Dict, Optional, Tuple, Union
 
 import WDL
 from WDL import Env, Value, values_to_json
+from WDL import Type
 from WDL.runtime import cache, config
 from WDL._util import StructuredLogMessage as _
 
