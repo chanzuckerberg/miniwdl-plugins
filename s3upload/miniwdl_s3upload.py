@@ -41,6 +41,7 @@ from WDL.runtime import cache, config
 from WDL._util import StructuredLogMessage as _
 
 import boto3
+import botocore
 
 s3 = boto3.resource("s3", endpoint_url=os.getenv("AWS_ENDPOINT_URL"))
 s3_client = boto3.client("s3", endpoint_url=os.getenv("AWS_ENDPOINT_URL"))
@@ -121,7 +122,12 @@ class CallCache(cache.CallCache):
         key = os.path.join(prefix, "cache", f"{key}.json")[1:]
         abs_fn = os.path.join(self._cfg["call_cache"]["dir"], f"{key}.json")
         Path(abs_fn).parent.mkdir(parents=True, exist_ok=True)
-        s3_client.download_file(bucket, key, abs_fn)
+        try:
+            s3_client.download_file(bucket, key, abs_fn)
+        except botocore.exceptions.ClientError as e:
+            if e.response['Error']['Code'] != "404":
+                raise e
+
         return super().get(key, inputs, output_types)
 
     def put(self, key: str, outputs: Env.Bindings[Value.Base]) -> None:
