@@ -159,22 +159,24 @@ def update_status_json(logger, task, run_ids, s3_wd_uri, entries):
     concurrently).
     """
     global _status_json, _status_json_lock
+    
+    if not s3_wd_uri: 
+        return
 
     try:
         # Figure out workflow and step names:
         # e.g. run_ids = ["host_filter", "call-validate_input"]
         workflow_name = run_ids[0]
-        if not s3_wd_uri or workflow_name not in (
-            "idseq_host_filter",
-            "idseq_non_host_alignment",
-            "idseq_postprocess",
-            "idseq_experimental",
+        if workflow_name in (
+            "czid_host_filter",
+            "czid_non_host_alignment",
+            "czid_postprocess",
+            "czid_experimental",
         ):
-            return
-        workflow_name = workflow_name[6:]
+	    workflow_name = "_".join(workflow_name.split("_")[1:])
         # parse --step-name from the task command template. For historical reasons, the status JSON
         # keys use this name and it's not the same as the WDL task name.
-        step_name = None
+        step_name = task.name # use WDL task name as default
         step_name_re = re.compile(r"--step-name\s+(\S+)\s")
         for part in task.command.parts:
             m = step_name_re.search(part) if isinstance(part, str) else None
