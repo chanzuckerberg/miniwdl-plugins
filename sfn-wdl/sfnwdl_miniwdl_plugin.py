@@ -173,29 +173,29 @@ def update_status_json(logger, task, run_ids, s3_wd_uri, entries):
             "czid_postprocess",
             "czid_experimental",
         ):
-	    workflow_name = "_".join(workflow_name.split("_")[1:])
-        # parse --step-name from the task command template. For historical reasons, the status JSON
-        # keys use this name and it's not the same as the WDL task name.
-        step_name = task.name # use WDL task name as default
-        step_name_re = re.compile(r"--step-name\s+(\S+)\s")
-        for part in task.command.parts:
-            m = step_name_re.search(part) if isinstance(part, str) else None
-            if m:
-                step_name = m.group(1)
-        assert step_name, "reading --step-name from task command"
-
-        # Update _status_json which is accumulating over the course of workflow execution.
-        with _status_json_lock:
-            status = _status_json.setdefault(step_name, {})
-            for k, v in entries.items():
-                status[k] = v
-
-            # Upload it
-            logger.verbose(
-                _("update_status_json", step_name=step_name, status=status)
-            )
-            status_uri = os.path.join(s3_wd_uri, f"{workflow_name}_status2.json")
-            s3_object(status_uri).put(Body=json.dumps(_status_json).encode())
+            workflow_name = "_".join(workflow_name.split("_")[1:])
+            # parse --step-name from the task command template. For historical reasons, the status JSON
+            # keys use this name and it's not the same as the WDL task name.
+            step_name = task.name # use WDL task name as default
+            step_name_re = re.compile(r"--step-name\s+(\S+)\s")
+            for part in task.command.parts:
+                m = step_name_re.search(part) if isinstance(part, str) else None
+                if m:
+                    step_name = m.group(1)
+            assert step_name, "reading --step-name from task command"
+            
+            # Update _status_json which is accumulating over the course of workflow execution.
+            with _status_json_lock:
+                status = _status_json.setdefault(step_name, {})
+                for k, v in entries.items():
+                    status[k] = v
+            
+                # Upload it
+                logger.verbose(
+                    _("update_status_json", step_name=step_name, status=status)
+                )
+                status_uri = os.path.join(s3_wd_uri, f"{workflow_name}_status2.json")
+                s3_object(status_uri).put(Body=json.dumps(_status_json).encode())
     except Exception as exn:
         logger.error(
             _("update_status_json failed", error=str(exn), s3_wd_uri=s3_wd_uri, run_ids=run_ids)
