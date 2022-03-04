@@ -159,8 +159,8 @@ def update_status_json(logger, task, run_ids, s3_wd_uri, entries):
     concurrently).
     """
     global _status_json, _status_json_lock
-    
-    if not s3_wd_uri: 
+
+    if not s3_wd_uri:
         return
 
     try:
@@ -176,20 +176,20 @@ def update_status_json(logger, task, run_ids, s3_wd_uri, entries):
             workflow_name = "_".join(workflow_name.split("_")[1:])
             # parse --step-name from the task command template. For historical reasons, the status JSON
             # keys use this name and it's not the same as the WDL task name.
-            step_name = task.name # use WDL task name as default
+            step_name = task.name  # use WDL task name as default
             step_name_re = re.compile(r"--step-name\s+(\S+)\s")
             for part in task.command.parts:
                 m = step_name_re.search(part) if isinstance(part, str) else None
                 if m:
                     step_name = m.group(1)
             assert step_name, "reading --step-name from task command"
-            
+
             # Update _status_json which is accumulating over the course of workflow execution.
             with _status_json_lock:
                 status = _status_json.setdefault(step_name, {})
                 for k, v in entries.items():
                     status[k] = v
-            
+
                 # Upload it
                 logger.verbose(
                     _("update_status_json", step_name=step_name, status=status)
