@@ -33,9 +33,8 @@ def main(cfg, logger, uri, **kwargs):
     aws_credentials = "\n".join(f"export {k}='{v}'" for (k, v) in aws_credentials.items())
 
     # write them to a temp file that'll self-destruct automatically
-    temp_dir = cfg["s3parcp"].get("dir", "/mnt")
     with tempfile.NamedTemporaryFile(
-        prefix="miniwdl_download_s3parcp_credentials_", delete=True, mode="w", dir=temp_dir
+        prefix="miniwdl_download_s3parcp_credentials_", delete=True, mode="w", dir="/mnt"
     ) as aws_credentials_file:
         print(aws_credentials, file=aws_credentials_file, flush=True)
         # make file group-readable to ensure it'll be usable if the docker image runs as non-root
