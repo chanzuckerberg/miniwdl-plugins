@@ -53,14 +53,18 @@ def s3_object(uri: str):
     return s3.Bucket(bucket).Object(key)
 
 
-def get_s3prefix(cfg: config.Loader) -> str:
+def get_s3_put_prefix(cfg: config.Loader) -> str:
     s3prefix = cfg["s3_progressive_upload"]["uri_prefix"]
     assert s3prefix.startswith("s3://"), "MINIWDL__S3_PROGRESSIVE_UPLOAD__URI_PREFIX invalid"
     return s3prefix
 
 
-def s3uri(cfg: config.Loader, key: str) -> str:
-    return os.path.join(get_s3prefix(cfg), "cache", f"{key}.json")
+def get_s3_get_prefix(cfg: config.Loader) -> str:
+    s3prefix = cfg["s3_progressive_upload"].get("call_cache_get_uri_prefix")
+    if not s3prefix:
+        return get_s3_put_prefix(cfg)
+    assert s3prefix.startswith("s3://"), "MINIWDL__S3_PROGRESSIVE_UPLOAD__CALL_CACHE_GET_URI_PREFIX invalid"
+    return s3prefix
 
 
 def flag_temporary(s3uri):
@@ -106,17 +110,17 @@ def cache_put(cfg: config.Loader, logger: logging.Logger, key: str, outputs: Env
 
     remapped_outputs = Value.rewrite_env_paths(outputs, cache)
     if not missing:
-        uri = s3uri(cfg, key)
+        uri = os.path.join(get_s3_put_prefix(cfg), "cache", f"{key}.json")
         s3_object(uri).put(Body=json.dumps(values_to_json(remapped_outputs)).encode())
         flag_temporary(uri)
-        logger.info(_("call cache insert", cache_file=s3uri(cfg, key)))
+        logger.info(_("call cache insert", cache_file=uri))
 
 
 class CallCache(cache.CallCache):
     def get(
         self, key: str, inputs: Env.Bindings[Value.Base], output_types: Env.Bindings[Type.Base]
     ) -> Optional[Env.Bindings[Value.Base]]:
-        uri = urlparse(get_s3prefix(self._cfg))
+        uri = urlparse(get_s3_get_prefix(self._cfg))
         bucket, prefix = uri.hostname, uri.path
 
         key = os.path.join(prefix, "cache", f"{key}.json")[1:]
@@ -174,7 +178,7 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
         yield recv
         return
 
-    s3prefix = get_s3prefix(cfg)
+    s3prefix = get_s3_put_prefix(cfg)
 
     # for each file under out
     def _raise(ex):
@@ -232,7 +236,7 @@ def workflow(cfg, logger, run_id, run_dir, workflow, **recv):
             logger,
             recv["outputs"],
             run_dir,
-            os.path.join(get_s3prefix(cfg), *run_id[1:]),
+            os.path.join(get_s3_put_prefix(cfg), *run_id[1:]),
             workflow.name,
         )
 
