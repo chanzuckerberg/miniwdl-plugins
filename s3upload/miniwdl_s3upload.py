@@ -116,7 +116,7 @@ class CallCache(cache.CallCache):
     def get(
         self, key: str, inputs: Env.Bindings[Value.Base], output_types: Env.Bindings[Type.Base]
     ) -> Optional[Env.Bindings[Value.Base]]:
-        uri = urlparse(self._cfg["s3_progressive_upload"]["uri_prefix"])
+        uri = urlparse(get_s3prefix(self._cfg))
         bucket, prefix = uri.hostname, uri.path
 
         key = os.path.join(prefix, "cache", f"{key}.json")[1:]
@@ -174,8 +174,7 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
         yield recv
         return
 
-    s3prefix = cfg["s3_progressive_upload"]["uri_prefix"]
-    assert s3prefix.startswith("s3://"), "MINIWDL__S3_PROGRESSIVE_UPLOAD__URI_PREFIX invalid"
+    s3prefix = get_s3prefix(cfg)
 
     # for each file under out
     def _raise(ex):
@@ -233,7 +232,7 @@ def workflow(cfg, logger, run_id, run_dir, workflow, **recv):
             logger,
             recv["outputs"],
             run_dir,
-            os.path.join(cfg["s3_progressive_upload"]["uri_prefix"], *run_id[1:]),
+            os.path.join(get_s3prefix(cfg), *run_id[1:]),
             workflow.name,
         )
 
