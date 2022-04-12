@@ -119,7 +119,7 @@ def task(cfg, logger, run_id, run_dir, task, **recv):
             if last_stderr_json and "wdl_error_message" in last_stderr_json:
                 msg = last_stderr_json.get("cause", last_stderr_json["wdl_error_message"])
                 if last_stderr_json.get("error", None) == "InvalidInputFileError":
-                    status = "user_errored"
+                    status = dict(status="user_errored")
                 if "step_description_md" in last_stderr_json:
                     status.update(description=last_stderr_json["step_description_md"])
             status.update(error=msg, end_time=time.time())
