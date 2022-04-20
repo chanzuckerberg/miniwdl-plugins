@@ -293,4 +293,4 @@ def s3cp(logger, fn, s3uri):
                     stderr=rslt.stderr.decode("utf-8"),
                 )
             )
-            raise WDL.Error.RuntimeError("failed: " + " ".join(cmd))
+            raise WDL.Error.RuntimeError("failed: " + " ".join(cmd) + ", " + rslt.stderr.decode("utf-8"))
