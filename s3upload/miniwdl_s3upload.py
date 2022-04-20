@@ -278,7 +278,10 @@ _s3parcp_lock = threading.Lock()
 
 def s3cp(logger, fn, s3uri):
     with _s3parcp_lock:
-        cmd = ["s3parcp", "--checksum", fn, s3uri]
+        if "S3PARCP_S3_URL" in os.environ:
+            cmd = ["s3parcp", "--checksum", fn, s3uri]
+        else:
+            cmd = ["s3parcp", fn, s3uri]
         logger.debug(" ".join(cmd))
         rslt = subprocess.run(cmd, stderr=subprocess.PIPE)
         if rslt.returncode != 0:
