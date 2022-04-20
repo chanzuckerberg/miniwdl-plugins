@@ -120,6 +120,8 @@ class CallCache(cache.CallCache):
     def get(
         self, key: str, inputs: Env.Bindings[Value.Base], output_types: Env.Bindings[Type.Base]
     ) -> Optional[Env.Bindings[Value.Base]]:
+        if not self._cfg.has_option("s3_progressive_upload", "uri_prefix"):
+            return super().get(key, inputs, output_types)
         uri = urlparse(get_s3_get_prefix(self._cfg))
         bucket, prefix = uri.hostname, uri.path
 
