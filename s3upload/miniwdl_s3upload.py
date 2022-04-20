@@ -60,7 +60,7 @@ def get_s3_put_prefix(cfg: config.Loader) -> str:
 
 
 def get_s3_get_prefix(cfg: config.Loader) -> str:
-    if not cfg.has_option("s3_progressive_upload", "uri_prefix"):
+    if not cfg.has_option("s3_progressive_upload", "call_cache_get_uri_prefix"):
         return get_s3_put_prefix(cfg)
     s3prefix = cfg["s3_progressive_upload"].get("call_cache_get_uri_prefix")
     assert s3prefix.startswith("s3://"), "MINIWDL__S3_PROGRESSIVE_UPLOAD__CALL_CACHE_GET_URI_PREFIX invalid"
