@@ -60,10 +60,9 @@ def get_s3_put_prefix(cfg: config.Loader) -> str:
 
 
 def get_s3_get_prefix(cfg: config.Loader) -> str:
-    # s3prefix = cfg["s3_progressive_upload"].get("call_cache_get_uri_prefix")
-    s3prefix = None
-    if not s3prefix:
+    if not cfg.has_option("s3_progressive_upload", "uri_prefix"):
         return get_s3_put_prefix(cfg)
+    s3prefix = cfg["s3_progressive_upload"].get("call_cache_get_uri_prefix")
     assert s3prefix.startswith("s3://"), "MINIWDL__S3_PROGRESSIVE_UPLOAD__CALL_CACHE_GET_URI_PREFIX invalid"
     return s3prefix
 
@@ -110,7 +109,7 @@ def cache_put(cfg: config.Loader, logger: logging.Logger, key: str, outputs: Env
         return _uploaded_files[inode(str(v.value))]
 
     remapped_outputs = Value.rewrite_env_paths(outputs, cache)
-    if not missing:
+    if not missing and cfg.has_option("s3_progressive_upload", "uri_prefix"):
         uri = os.path.join(get_s3_put_prefix(cfg), "cache", f"{key}.json")
         s3_object(uri).put(Body=json.dumps(values_to_json(remapped_outputs)).encode())
         flag_temporary(uri)
