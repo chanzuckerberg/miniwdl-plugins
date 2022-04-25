@@ -3,7 +3,6 @@ import os
 import re
 import threading
 import time
-import urllib.parse
 from typing import Any, Dict
 
 import boto3
