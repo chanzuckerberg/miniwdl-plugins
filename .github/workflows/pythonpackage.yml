@@ -14,6 +14,7 @@ jobs:
           - s3parcp_download
           - s3upload
           - sfn-wdl
+          - subprocess
 
     steps:
     - uses: actions/checkout@v1
@@ -32,3 +33,9 @@ jobs:
     - name: mypy
       run: mypy --ignore-missing-imports ${{ matrix.which_plugin }}
     # TODO: tests
+    - name: Run subprocess test
+      if: ${{ matrix.which_plugin == 'subprocess' }}
+      env:
+        MINIWDL__SCHEDULER__CONTAINER_BACKEND: subprocess
+      run: |
+        miniwdl run_self_test
