@@ -17,7 +17,7 @@ class LocalSubprocess(SubprocessBase):
     @classmethod
     def global_init(cls, cfg: config.Loader, logger: logging.Logger) -> None:
         cfg.override({"file_io": {"copy_input_files": True}})
-        logger.notice("Local runtime initialized (BETA)")
+        logger.info("Local runtime initialized (BETA)")
 
     def __init__(self, cfg: config.Loader, run_id: str, host_dir: str) -> None:
         super().__init__(cfg, run_id, host_dir)
@@ -33,7 +33,7 @@ class LocalSubprocess(SubprocessBase):
         return self.cfg.get_list("singularity", "exe")
 
     def _pull(self, logger: logging.Logger, cleanup: ExitStack) -> str:
-        pass
+        return ''
 
     def _run_invocation(self, logger: logging.Logger, cleanup: ExitStack, image: str) -> List[str]:
         self.host_dir = os.path.join(self.host_dir, "work")
