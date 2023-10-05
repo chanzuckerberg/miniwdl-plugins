@@ -26,7 +26,7 @@ class LocalSubprocess(SubprocessBase):
 
     @property
     def cli_name(self) -> str:
-        return "subprocess
+        return "subprocess"
 
     @property
     def cli_exe(self) -> List[str]:
