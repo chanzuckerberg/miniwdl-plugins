@@ -19,6 +19,6 @@ setup(
     install_requires=[],
     reentry_register=True,
     entry_points={
-        "miniwdl.plugin.container_backend": ["local = miniwdl_subprocess:LocalSubprocess"]
+        "miniwdl.plugin.container_backend": ["subprocess = miniwdl_subprocess:LocalSubprocess"]
     },
 )
